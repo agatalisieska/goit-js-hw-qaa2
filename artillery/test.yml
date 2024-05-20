@@ -1,0 +1,53 @@
+config:
+  target: "https://dog.ceo/dog-api/"
+  phases:
+    - duration: 35
+      arrivalRate: 2
+      name: Artillery Spike-pre Warm-Up Test
+    - duration: 10
+      arrivalRate: 20
+      name: Artillery Spike Test
+    - duration: 35
+      arrivalRate: 2
+      name: Artillery Spike-post Cool-Down
+  payload:
+    path: "keywords.csv"
+    fields:
+      - "fruit"
+      - "car"
+    order: sequence
+    skipHeader: false
+    cast: false
+    artskipEmptyLines: true
+  plugins:
+    ensure:
+      thresholds:
+        - http.response_time.p95: 10
+        - http.response_time.max: 2000
+      conditions:
+        - expression: vusers.failed == 0
+        - expression: "http.request_rate >=2 and http.response_time.max < 600"
+
+scenarios:
+  - name: Gettin a resource
+    flow:
+      - get:
+          url: "{{ target }}get"
+      - post:
+          url: "{{ target }}post"
+          json:
+            username: "Test User"
+            password: "Temp Password"
+          capture:
+            - json: "$.json"
+              as: "request_body"
+            - json: "$.headers.Host"
+              as: "host"
+      - log: "Json value from response is: {{ request_body }}"
+      - log: "Host value from response is {{ host }}"
+      - think: 1
+      - assert:
+          - json: "$.args"
+            condition: exists
+          - json: "$.headers.Content-Length"
+            condition: "<10"
